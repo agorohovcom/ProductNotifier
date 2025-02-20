@@ -42,7 +42,7 @@ public class ProductServiceImpl implements ProductService {
 //                                productId,
 //                                productCreatedEvent
 //                        );
-
+//
 //        future.whenComplete((result, exception) -> {
 //            if (exception != null) {
 //                log.error("Failed to send message: {}", exception.getMessage());

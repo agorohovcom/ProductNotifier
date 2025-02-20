@@ -1,0 +1,183 @@
+======================================================================================
+============================== Запуск сервера Kafka ==================================
+======================================================================================
+
+# Генерируем id для Kafka кластера
+./kafka-storage.sh random-uuid
+
+# Форматируем конфиг под KRaft (вставляем uuid полученный в результате предыдущей команды)
+./kafka-storage.sh format -t GyGdzFaRT0KuOGSO7JxvlQ -c ../config/kraft/server.properties
+
+# Запускаем сервер
+./kafka-server-start.sh ../config/kraft/server.properties
+
+======================================================================================
+============================ Запуск кластера Kafka ===================================
+======================================================================================
+
+=== Подготовка ===
+
+Создаём файл конфигурации под каждый сервер. Например, копируем server.properties
+и создаём файлы server-1.properties, server-2.properties, server-3.properties
+
+Далее в этих файлах обновляем свойства:
+
+1. node.id - id в кластере:
+node.id=1
+node.id=2
+node.id=3 
+
+2. listeners - список адресов для брокеров и контроллеров:
+listeners=PLAINTEXT://:9092,CONTROLLER://:9093
+listeners=PLAINTEXT://:9094,CONTROLLER://:9095
+listeners=PLAINTEXT://:9096,CONTROLLER://:9097
+
+3. controller.quorum.voters - список избирателей которые составляют кворум в кластере:
+controller.quorum.voters=1@localhost:9093,2@localhost:9095,3@localhost:9097
+controller.quorum.voters=1@localhost:9093,2@localhost:9095,3@localhost:9097
+controller.quorum.voters=1@localhost:9093,2@localhost:9095,3@localhost:9097
+
+4. advertised.listeners - список адресов для соединения с брокером, отличается от listeners (список адресов, где брокер будет слушать клиентов):
+advertised.listeners=PLAINTEXT://localhost:9092
+advertised.listeners=PLAINTEXT://localhost:9094
+advertised.listeners=PLAINTEXT://localhost:9096
+
+5. log.dirs - локальная директория метаданных:
+log.dirs=/tmp/server-1/kraft-combined-logs
+log.dirs=/tmp/server-2/kraft-combined-logs
+log.dirs=/tmp/server-1/kraft-combined-logs
+
+=== Запуск кластера ===
+
+1. Получаем id кластера:
+./kafka-storage.sh random-uuid
+
+2. Форматируем директории для совместимости в KRaft (вставляем uuid полученный в результате предыдущей команды):
+./kafka-storage.sh format -t GyGdzFaRT0KuOGSO7JxvlQ -c ../config/kraft/server-1.properties
+./kafka-storage.sh format -t GyGdzFaRT0KuOGSO7JxvlQ -c ../config/kraft/server-2.properties
+./kafka-storage.sh format -t GyGdzFaRT0KuOGSO7JxvlQ -c ../config/kraft/server-3.properties
+
+3. Запускаем подготовленные сервера на основании конфигов (в разных терминалах):
+./kafka-server-start.sh ../config/kraft/server-1.properties
+./kafka-server-start.sh ../config/kraft/server-2.properties
+./kafka-server-start.sh ../config/kraft/server-3.properties
+
+=== Как остановить сервера ===
+
+1. Ctrl + C в терминале с запущенным сервером, чревато потерей данных
+2. Останавливаем сервера через команду ./kafka-server-stop.sh
+
+======================================================================================
+=========== Kafka Topic CLI. Создаем и тестируем топик через командную строку ========
+======================================================================================
+
+=== Зачем CLI ===
+
+1. Создать новый топик ./kafka-topics.sh
+2. Вывести список топиков
+3. Детальное описание топика
+4. Удалить топик
+5. Изменить топик
+
+=== Пример создания нового топика ===
+
+./kafka-topics.sh --create --topic payment-created-events-topic --partitions 3 --replication-factor 3 --bootstrap-server localhost:9092,localhost:9094
+
+Пояснения:
+
+--create --topic payment-created-events-topic - создать новый топик с именем payment-created-events-topic
+
+--partitions 3 - количество партиций, количество consumers не может превышать количество партиций. Если партиция одна, то параллельной обработки не будет даже если есть много консьюмеров
+
+--replication-factor 3 - 3 копии каждой партиции (одна в лидере, две в репликах), не может быть больше чем серверов
+
+--bootstrap-server localhost:9092,localhost:9094 - список брокеров в кластере, можно указать только один и он найдет остальных, но лучше списком хотя бы 2 для надёжности
+
+=== Создадим пару топиков ===
+
+./kafka-topics.sh --create --topic payment-created-events-topic --partitions 3 --replication-factor 3 --bootstrap-server localhost:9092,localhost:9094
+./kafka-topics.sh --create --topic payment-sent-events-topic --partitions 3 --replication-factor 3 --bootstrap-server localhost:9092,localhost:9094
+
+=== Вывести список топиков ===
+
+./kafka-topics.sh --list --bootstrap-server localhost:9092,localhost:9094 - список
+./kafka-topics.sh --describe --bootstrap-server localhost:9092,localhost:9094 - более подробная информация
+
+=== Удаление топиков по имени ===
+
+./kafka-topics.sh --delete --topic payment-created-events-topic --bootstrap-server localhost:9092 - указываем хотя бы один сервер
+./kafka-topics.sh --delete --topic payment-sent-events-topic --bootstrap-server localhost:9092 - указываем хотя бы один сервер
+
+======================================================================================
+========= Kafka Producer CLI. Отправка сообщений серверу через командную строку ======
+======================================================================================
+
+./kafka-console-producer.sh --bootstrap-server localhost:9092,localhost:9094 --topic payment-canceled-events-topic --property "parse.key=true" --property "key.separator=:"
+
+Пояснения:
+
+1. Указываем хотя бы один сервер в кластере, но рекомендуется хотя бы 2 есди их много
+2. Указываем ключ чтобы попасть в имеющуюся партицию
+3. Далее отправляем сообщение в формате ключ:сообщение
+
+======================================================================================
+============================= Чтение сообщения из топика =============================
+======================================================================================
+
+./kafka-console-consumer.sh --bootstrap-server localhost:9092,localhost:9094 --topic payment-canceled-events-topic --from-beginning --property "print.key=true" --property "print.value=false"
+
+Пояснения:
+
+1. --from-beginning - чтение с начала
+2. --property "print.key=true" - чтение с ключами
+3. --property "print.value=false" - чтение без значений
+
+======================================================================================
+======================== Конфигурация Kafka в Spring Boot ============================
+======================================================================================
+
+server.port=0
+spring.kafka.producer.bootstrap-servers=localhost:9092,localhost:9094
+spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer
+spring.kafka.producer.value-serializer=org.springframework.kafka.support.serializer.JsonSerializer
+
+Параметр acknowledgement:
+
+spring.kafka.producer.acks=all - получать подтверждение от всех серверов, учавствующих в обработке топика (сколько реплик указано в топике "min.insync.replicas", это и есть all)
+spring.kafka.producer.acks=0 - не ждать подтверждений
+spring.kafka.producer.acks=1 - получать подтверждения только от лидера
+spring.kafka.producer.acks=2 - от лидера и ещё одного сервера
+
+spring.kafka.producer.retries=10 - по умолчанию Integer.MAX, устанавливает кол-во повторных попыток если сервер упал
+
+spring.kafka.producer.properties.retry.backoff.ms=1000 - по умолчанию 100 мс, с каким интервалом отправлять повторные сообщения
+
+spring.kafka.producer.properties.delivery.timeout.ms=60000 - по умолч 120000 (2 минуты), максимальное время на повторы сообщения, потом TimeoutException
+
+spring.kafka.producer.properties.linger.ms=0 - промежуток времени в течении которого накапливаем сообщения, а потом шлём их одним батчем
+
+spring.kafka.producer.properties.request.timeout.ms=30000 - как долго producer ждёт ответа от брокера
+
+!!!!! нужно помнить правило:
+delivery.timeout.ms >= linger.ms + request.timeout.ms
+
+======================================================================================
+============================ Как изменить топик ======================================
+======================================================================================
+
+Например, поменяем параметр "min.insync.replicas" в созданном в Spring Boot приложении топике:
+
+./kafka-config.sh --bootstrap-server localhost:9092,localhost:9094 --alter --entity-type topics --entity-name product-created-events-topic --add-config min.insync.replicas=3
+
+======================================================================================
+============================= Idempotence / Идемпотентность ==========================
+======================================================================================
+
+Явно включить:
+spring.kafka.producer.properties.enable.idempotence=true
+
+Чтобы неявно не переводилось в false, нужно чтобы выполнялись эти 3 условия:
+spring.kafka.producer.acks=all							// только all
+spring.kafka.producer.retries=10						// больше 0
+spring.kafka.producer.properties.max.in.flight.requests.per.connection=5	// меньше или равно 5
+

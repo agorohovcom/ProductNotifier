@@ -2,6 +2,7 @@ package com.agorohov.productmicroservice.service;
 
 import com.agorohov.core.ProductCreatedEvent;
 import com.agorohov.productmicroservice.service.dto.CreateProductDto;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -9,7 +10,6 @@ import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 @Service
@@ -34,14 +34,17 @@ public class ProductServiceImpl implements ProductService {
                 createProductDto.getQuantity()
         );
 
-        /** Первый способ реализовать асинхронную и синхронную обработку */
+        // Для реализации идемпотентности консьюмера
+        ProducerRecord<String, ProductCreatedEvent> record = new ProducerRecord<>(
+                "product-created-events-topic",
+                productId,
+                productCreatedEvent
+        );
+        record.headers().add("messageId", UUID.randomUUID().toString().getBytes());
+
+        // Первый способ реализовать асинхронную и синхронную обработку
 //        CompletableFuture<SendResult<String, ProductCreatedEvent>> future =
-//                kafkaTemplate
-//                        .send(
-//                                "product-created-events-topic",
-//                                productId,
-//                                productCreatedEvent
-//                        );
+//                kafkaTemplate.send(record);
 //
 //        future.whenComplete((result, exception) -> {
 //            if (exception != null) {
@@ -50,19 +53,13 @@ public class ProductServiceImpl implements ProductService {
 //                log.info("Message sent successfully: {}", result.getRecordMetadata());
 //            }
 //        });
-
-        // чтобы перевести в синхронный режим
+//
+//        // чтобы перевести в синхронный режим
 //        future.join();
 
-        /** Второй способ реализовать синхронную обработку */
-        SendResult<String, ProductCreatedEvent> result =
-                kafkaTemplate
-                        .send(
-                                "product-created-events-topic",
-                                productId,
-                                productCreatedEvent
-                        )
-                        .get();
+        // Второй способ реализовать синхронную обработку
+        SendResult<String, ProductCreatedEvent> result = kafkaTemplate
+                .send(record).get();
 
         log.info("Topic: {}", result.getRecordMetadata().topic());
         log.info("Partition: {}", result.getRecordMetadata().partition());

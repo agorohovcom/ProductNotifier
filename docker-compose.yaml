@@ -15,6 +15,7 @@ services:
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_LOG_DIRS=/bitnami/kafka/data
     volumes:
       - /run/desktop/mnt/host/d/Projects/Microservices/JavaGuru - Kafka Полный курс/ProductNotifier/volumes/server-1:/bitnami/kafka
 
@@ -32,6 +33,7 @@ services:
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_LOG_DIRS=/bitnami/kafka/data
     volumes:
       - /run/desktop/mnt/host/d/Projects/Microservices/JavaGuru - Kafka Полный курс/ProductNotifier/volumes/server-2:/bitnami/kafka
 
@@ -49,6 +51,7 @@ services:
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_LOG_DIRS=/bitnami/kafka/data
     volumes:
       - /run/desktop/mnt/host/d/Projects/Microservices/JavaGuru - Kafka Полный курс/ProductNotifier/volumes/server-3:/bitnami/kafka
 
